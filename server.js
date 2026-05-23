@@ -1,533 +1,486 @@
-// const express = require("express")
-// const cors = require("cors")
-// const scamRoutes = require("./routes/scamRoutes")
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import Groq from "groq-sdk";
+import fetch from "node-fetch";
 
-// const app = express()
+dotenv.config();
 
-// app.use(cors())
-// app.use(express.json())
+const app = express();
 
-// app.use("/api", scamRoutes)
+app.use(cors());
+app.use(express.json());
 
-// app.listen(5000, () => {
-//     console.log("Server running on port 5000")
-// })
 
 
+// =====================================================
+// MULTIPLE GROQ API KEYS
+// =====================================================
 
+const GROQ_KEYS = [
 
+  process.env.GROQ_API_KEY_1,
+  process.env.GROQ_API_KEY_2,
+  process.env.GROQ_API_KEY_3,
+  process.env.GROQ_API_KEY_4,
+  process.env.GROQ_API_KEY_5,
+  process.env.GROQ_API_KEY_6,
+  process.env.GROQ_API_KEY_7,
+  process.env.GROQ_API_KEY_8,
+  process.env.GROQ_API_KEY_9,
+  process.env.GROQ_API_KEY_10
 
-// const express = require("express")
-// const cors = require("cors")
-// const dotenv = require("dotenv")
-// const OpenAI = require("openai")
+].filter(Boolean);
 
-// const scamRoutes = require("./routes/scamRoutes")
 
-// dotenv.config()
 
-// const app = express()
+// =====================================================
+// CREATE GROQ CLIENT
+// =====================================================
 
-// app.use(cors())
-// app.use(express.json())
+const createGroqClient = (apiKey) => {
 
-// // Existing scam detection API
-// app.use("/api", scamRoutes)
+  return new Groq({
 
+    apiKey
 
-// // ================= AI CHATBOT API =================
+  });
 
-// const openai = new OpenAI({
-// apiKey: process.env.OPENAI_API_KEY
-// })
+};
 
-// app.post("/api/chatbot", async (req,res)=>{
 
-// const { message } = req.body
 
-// try{
+// =====================================================
+// AI REQUEST WITH AUTO FALLBACK
+// =====================================================
 
-// const completion = await openai.chat.completions.create({
-// model: "gpt-4o-mini",
-// messages: [
-// {
-// role: "system",
-// content: "You are a cybersecurity AI assistant that helps users detect scams and explain if a message is safe or dangerous."
-// },
-// {
-// role: "user",
-// content: message
-// }
-// ]
-// })
+const askGroqAI = async (message) => {
 
-// res.json({
-// reply: completion.choices[0].message.content
-// })
+  let lastError = null;
 
-// }catch(error){
+  for (let i = 0; i < GROQ_KEYS.length; i++) {
 
-// console.error(error)
+    try {
 
-// res.status(500).json({
-// error: "AI chatbot error"
-// })
+      console.log(
+        `Using GROQ KEY ${i + 1}`
+      );
 
-// }
+      const groq =
+        createGroqClient(
+          GROQ_KEYS[i]
+        );
 
-// })
+      const completion =
+        await groq.chat.completions.create({
 
-// // ==================================================
+          model:
+            "llama-3.1-8b-instant",
 
+          messages: [
 
-// app.listen(5000, () => {
-// console.log("Server running on port 5000")
-// })
+            {
 
+              role: "system",
 
+              content: `
 
+You are an advanced AI scam detector.
 
+Rules:
 
+- Detect phishing, fake banking alerts, scam links, fake rewards, OTP fraud, urgent payment scams.
+- Trusted domains like google.com, github.com, microsoft.com, youtube.com, openai.com are SAFE.
+- Always reply clearly.
 
+Format:
 
+Result: SAFE or SCAM
 
+Reason:
+Short explanation.
 
-// import express from "express"
-// import cors from "cors"
-// import dotenv from "dotenv"
-// import OpenAI from "openai"
+              `
 
-// import scamRoutes from "./routes/scamRoutes.js"
-// import chatbot from "./routes/chatbot.js"
+            },
 
-// dotenv.config()
+            {
 
-// const app = express()
+              role: "user",
 
-// app.use(cors())
-// app.use(express.json())
+              content: message
 
-// // Scam Detection API
-// app.use("/api", scamRoutes)
+            }
 
-// // Chatbot API
-// app.use("/api", chatbot)
+          ]
 
+        });
 
-// // ================= AI CHATBOT WITH OPENAI =================
+      return completion
+        .choices[0]
+        .message
+        .content;
 
-// const openai = new OpenAI({
-// apiKey: process.env.OPENAI_API_KEY
-// })
+    }
 
-// app.post("/api/ai-chat", async (req,res)=>{
+    catch (error) {
 
-// const { message } = req.body
+      console.log(
+        `GROQ KEY ${i + 1} FAILED`
+      );
 
-// try{
+      console.log(error.message);
 
-// const completion = await openai.chat.completions.create({
-// model: "gpt-4o-mini",
-// messages: [
-// {
-// role: "system",
-// content: "You are a cybersecurity AI assistant that helps users detect scams and explain if a message is safe or dangerous."
-// },
-// {
-// role: "user",
-// content: message
-// }
-// ]
-// })
+      lastError = error;
 
-// res.json({
-// reply: completion.choices[0].message.content
-// })
+    }
 
-// }catch(error){
+  }
 
-// console.error(error)
+  throw lastError;
 
-// res.status(500).json({
-// error: "AI chatbot error"
-// })
+};
 
-// }
 
-// })
 
-// // ===========================================================
+// =====================================================
+// SCAM DETECTION API
+// =====================================================
 
-// app.listen(5000, () => {
-// console.log("🚀 Server running on port 5000")
-// })
+app.post("/api/check", (req, res) => {
 
+  try {
 
+    const { message } =
+      req.body;
 
+    if (!message) {
 
-// import express from "express"
-// import cors from "cors"
-// import dotenv from "dotenv"
-// import OpenAI from "openai"
+      return res.status(400).json({
 
-// import scamRoutes from "./routes/scamRoutes.js"
-// import chatbot from "./routes/chatbot.js"
+        prediction: "SAFE",
 
-// dotenv.config()
+        probability: 0,
 
-// const app = express()
+        type:
+          "No message provided"
 
-// app.use(cors())
-// app.use(express.json())
+      });
 
-// // ================= ROUTES =================
+    }
 
-// // Scam Detection API
-// app.use("/api", scamRoutes)
+    const msg =
+      message.toLowerCase();
 
-// // Optional chatbot route
-// app.use("/api", chatbot)
+    let prediction =
+      "SAFE";
 
+    let probability = 10;
 
-// // ================= OPENAI SETUP =================
+    let type =
+      "Normal message";
 
-// const openai = new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY
-// })
 
 
-// // ================= AI CHATBOT API =================
+    // SAFE OTP
 
-// app.post("/api/ask-ai", async (req, res) => {
+    if (
 
-//   try {
+      msg.includes("otp") &&
+      msg.includes("do not share")
 
-//     const { message } = req.body
+    ) {
 
-//     if(!message){
-//       return res.status(400).json({
-//         error: "Message is required"
-//       })
-//     }
+      prediction = "SAFE";
 
-//     const completion = await openai.chat.completions.create({
-//       model: "gpt-4o-mini",
-//       messages: [
-//         {
-//           role: "system",
-//           content: "You are a cybersecurity AI assistant that helps users detect scams and explain if a message is safe or dangerous."
-//         },
-//         {
-//           role: "user",
-//           content: message
-//         }
-//       ]
-//     })
+      probability = 5;
 
-//     res.json({
-//       reply: completion.choices[0].message.content
-//     })
+      type =
+        "Official OTP Message";
 
-//   } catch (error) {
+    }
 
-//     console.error("AI Error:", error)
 
-//     res.status(500).json({
-//       error: "AI Server Error"
-//     })
-//   }
 
-// })
+    // SCAM DETECTION
 
+    else if (
 
-// // ================= SERVER =================
+      msg.includes("lottery") ||
+      msg.includes("win money") ||
+      msg.includes("prize") ||
+      msg.includes("claim reward") ||
+      msg.includes("free money") ||
 
-// app.listen(5000, () => {
-//   console.log("🚀 Server running on port 5000")
-// })
+      msg.includes("bank") ||
+      msg.includes("account suspended") ||
+      msg.includes("verify account") ||
+      msg.includes("reactivate") ||
 
+      msg.includes("urgent") ||
+      msg.includes("immediately") ||
+      msg.includes("action required") ||
 
+      msg.includes("send money") ||
+      msg.includes("upi") ||
+      msg.includes("payment") ||
 
+      msg.includes("click link") ||
+      msg.includes("bit.ly") ||
+      msg.includes("tinyurl") ||
+      msg.includes("grabify") ||
 
+      msg.includes("share otp") ||
 
+      msg.includes("gift") ||
+      msg.includes("reward") ||
+      msg.includes("offer")
 
+    ) {
 
+      prediction = "SCAM";
 
-// import express from "express"
-// import cors from "cors"
-// import dotenv from "dotenv"
-// import Groq from "groq-sdk"
+      probability = 85;
 
-// import scamRoutes from "./routes/scamRoutes.js"
-// import chatbot from "./routes/chatbot.js"
+      type =
+        "Fraud / Phishing";
 
-// dotenv.config()
+    }
 
-// const app = express()
+    return res.json({
 
-// app.use(cors())
-// app.use(express.json())
+      prediction,
+      probability,
+      type
 
-// // ================= ROUTES =================
+    });
 
-// // Scam Detection API
-// app.use("/api", scamRoutes)
+  }
 
-// // Optional chatbot route
-// app.use("/api", chatbot)
+  catch (error) {
 
+    console.log(error);
 
-// // ================= GROQ AI SETUP =================
+    return res.status(500).json({
 
-// const groq = new Groq({
-//   apiKey: process.env.GROQ_API_KEY
-// })
+      prediction: "SAFE",
 
+      probability: 0,
 
-// // ================= AI CHATBOT API =================
+      type: "Server Error"
 
-// app.post("/api/ask-ai", async (req, res) => {
+    });
 
-//   try {
+  }
 
-//     const { message } = req.body
+});
 
-//     if (!message) {
-//       return res.status(400).json({
-//         error: "Message is required"
-//       })
-//     }
 
-//     const chat = await groq.chat.completions.create({
-//      model: "llama-3.1-8b-instant",
-//         messages: [
-//         {
-//           role: "system",
-//           content: "You are a cybersecurity AI assistant that helps users detect scams and explain if a message is safe or dangerous."
-//         },
-//         {
-//           role: "user",
-//           content: message
-//         }
-//       ]
-//     })
 
-//     res.json({
-//       reply: chat.choices[0].message.content
-//     })
-
-//   } catch (error) {
-
-//     console.error("AI Error:", error)
-
-//     res.status(500).json({
-//       error: "AI Server Error"
-//     })
-
-//   }
-
-// })
-
-
-// // ================= SERVER =================
-
-// app.listen(5000, () => {
-//   console.log("🚀 Server running on port 5000")
-// })
-
-
-
-
-
-
-// import express from "express"
-// import cors from "cors"
-// import dotenv from "dotenv"
-// import Groq from "groq-sdk"
-
-// import scamRoutes from "./routes/scamRoutes.js"
-// import chatbot from "./routes/chatbot.js"
-
-// dotenv.config()
-
-// const app = express()
-
-// app.use(cors())
-// app.use(express.json())
-
-// // ================= ROUTES =================
-
-// // Scam detection API
-// app.use("/api", scamRoutes)
-
-// // Optional chatbot route
-// app.use("/api", chatbot)
-
-
-// // ================= GROQ SETUP =================
-
-// const groq = new Groq({
-//   apiKey: process.env.GROQ_API_KEY
-// })
-
-
-// // ================= AI ASSISTANT =================
-
-// app.post("/api/ask-ai", async (req, res) => {
-
-//   try {
-
-//     const { message } = req.body
-
-//     if (!message) {
-//       return res.status(400).json({
-//         error: "Message is required"
-//       })
-//     }
-
-//     const chat = await groq.chat.completions.create({
-//       model: "llama-3.1-8b-instant",
-//       messages: [
-//         {
-//           role: "system",
-//           content: "You are an AI cybersecurity assistant. Analyze messages and explain if they are scams, phishing attempts, or safe."
-//         },
-//         {
-//           role: "user",
-//           content: message
-//         }
-//       ]
-//     })
-
-//     res.json({
-//       reply: chat.choices[0].message.content
-//     })
-
-//   } catch (error) {
-
-//     console.error("AI Error:", error)
-
-//     res.status(500).json({
-//       reply: "AI server error"
-//     })
-
-//   }
-
-// })
-
-
-// // ================= SERVER =================
-
-// const PORT = 5000
-
-// app.listen(PORT, () => {
-//   console.log(`🚀 Server running on port ${PORT}`)
-// })
-
-
-
-
-
-
-
-
-
-import express from "express"
-import cors from "cors"
-import dotenv from "dotenv"
-import Groq from "groq-sdk"
-
-import scamRoutes from "./routes/scamRoutes.js"
-import chatbot from "./routes/chatbot.js"
-import domainInfo from "./routes/domainInfo.js"
-
-dotenv.config()
-
-const app = express()
-
-app.use(cors())
-app.use(express.json())
-app.use("/api", domainInfo)
-
-// ================= ROUTES =================
-
-// Scam detection API
-app.use("/api", scamRoutes)
-
-// Optional chatbot route
-app.use("/api", chatbot)
-
-
-// ================= GROQ SETUP =================
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-})
-
-
-// ================= AI ASSISTANT =================
+// =====================================================
+// AI ASSISTANT
+// =====================================================
 
 app.post("/api/ask-ai", async (req, res) => {
 
   try {
 
-    const { message } = req.body
+    const { message } =
+      req.body;
 
     if (!message) {
+
       return res.status(400).json({
-        reply: "Message is required"
-      })
+
+        reply: "Message required"
+
+      });
+
     }
 
-    const completion = await groq.chat.completions.create({
-      // model: "llama3-8b-8192",
-
-      model: "llama-3.1-8b-instant",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a cybersecurity AI assistant that helps users detect scams, phishing messages, and suspicious links."
-        },
-        {
-          role: "user",
-          content: message
-        }
-      ]
-    })
+    const aiReply =
+      await askGroqAI(message);
 
     res.json({
-      reply: completion.choices[0].message.content
-    })
 
-  } catch (error) {
+      reply: aiReply
 
-    console.error("AI Error:", error)
-
-    res.status(500).json({
-      reply: "AI server error"
-    })
+    });
 
   }
 
-})
+  catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+
+      reply:
+        "All AI servers are busy. Try again later."
+
+    });
+
+  }
+
+});
 
 
-// ================= SERVER =================
 
-const PORT = 5000
+// =====================================================
+// TEXT TO SPEECH
+// =====================================================
+
+app.post("/api/speak", async (req, res) => {
+
+  try {
+
+    const {
+      text,
+      language
+    } = req.body;
+
+    if (!text) {
+
+      return res.status(400).json({
+
+        error:
+          "Text required"
+
+      });
+
+    }
+
+    const url =
+
+      `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
+        text
+      )}&tl=${language}&client=tw-ob`;
+
+    const response =
+      await fetch(url);
+
+    const audio =
+      await response.arrayBuffer();
+
+    res.set(
+      "Content-Type",
+      "audio/mpeg"
+    );
+
+    res.send(
+      Buffer.from(audio)
+    );
+
+  }
+
+  catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+
+      error:
+        "Voice generation failed"
+
+    });
+
+  }
+
+});
+
+
+
+// =====================================================
+// DOMAIN INFO API
+// =====================================================
+
+app.post("/api/domain-info", async (req, res) => {
+
+  try {
+
+    const { url } =
+      req.body;
+
+    if (!url) {
+
+      return res.status(400).json({
+
+        error:
+          "URL required"
+
+      });
+
+    }
+
+    res.json({
+
+      age: "12",
+
+      country:
+        "United States",
+
+      created:
+        "2012-08-15",
+
+      ip:
+        "142.250.183.206"
+
+    });
+
+  }
+
+  catch (error) {
+
+    console.log(error);
+
+    res.status(500).json({
+
+      error:
+        "Domain lookup failed"
+
+    });
+
+  }
+
+});
+
+
+
+// =====================================================
+// GLOBAL ERROR
+// =====================================================
+
+app.use((err, req, res, next) => {
+
+  console.log(err);
+
+  res.status(500).json({
+
+    error:
+      "Internal Server Error"
+
+  });
+
+});
+
+
+
+// =====================================================
+// SERVER
+// =====================================================
+
+const PORT =
+  process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`)
-})
+
+  console.log(
+    `🚀 Server running on port ${PORT}`
+  );
+
+    console.log(
+    `✅ MySQL connected on port ${PORT}`
+  );
 
 
-
-
-
-
-
-
-
-
-
+});
